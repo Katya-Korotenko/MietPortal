@@ -1,13 +1,16 @@
 from django.conf import settings
 from django.db import models
 
+from core.choices import PropertyType
+from core.models import TimeStampedModel, SoftDeleteModel
 
-class Listing(models.Model):
-    class PropertyType(models.TextChoices):
-        APARTMENT = 'apartment', 'Квартира'
-        HOUSE = 'house', 'Дом'
-        STUDIO = 'studio', 'Студия'
 
+class Listing(TimeStampedModel, SoftDeleteModel):
+    landlord = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='listings',
+    )
     title = models.CharField(max_length=255)
     description = models.TextField()
     city = models.CharField(max_length=100)
@@ -16,8 +19,13 @@ class Listing(models.Model):
     rooms = models.PositiveSmallIntegerField()
     property_type = models.CharField(max_length=20, choices=PropertyType.choices)
     is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Listing'
+        verbose_name_plural = 'Listings'
 
     def __str__(self):
         return self.title
+
+
