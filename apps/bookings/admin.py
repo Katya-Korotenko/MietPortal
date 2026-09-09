@@ -1,3 +1,10 @@
 from django.contrib import admin
+from simple_history.admin import SimpleHistoryAdmin
 
-# Register your models here.
+from .models import Booking
+
+
+@admin.register(Booking)
+class BookingAdmin(SimpleHistoryAdmin):
+    list_display = ('listing', 'start_date', 'end_date', 'status', 'created_at')
+    list_filter = ('status',)

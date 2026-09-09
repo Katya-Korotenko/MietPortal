@@ -36,8 +36,10 @@ INSTALLED_APPS = [
     'rest_framework',
     'django_filters',
     'drf_spectacular',
+    'simple_history',
 
     # Local apps
+    'core',
     'apps.users.apps.UsersConfig',
     'apps.listings.apps.ListingsConfig',
     'apps.bookings.apps.BookingsConfig',
@@ -53,6 +55,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'simple_history.middleware.HistoryRequestMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -101,7 +104,7 @@ else:
 
 
 # Custom user model
-AUTH_USER_MODEL = 'users.User'
+AUTH_USER_MODEL = 'users.UserBasic'
 
 
 # Password validation
@@ -171,4 +174,5 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
 }
