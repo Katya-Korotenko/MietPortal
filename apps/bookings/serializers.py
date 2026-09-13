@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -21,15 +23,25 @@ class BookingSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'status', 'created_at', 'updated_at')
 
     def validate(self, attrs):
-        start_date = attrs.get('start_date')
-        end_date = attrs.get('end_date')
-        listing = attrs.get('listing')
+        request = self.context['request']
+        start_date = attrs.get('start_date') or (self.instance.start_date if self.instance else None)
+        end_date = attrs.get('end_date') or (self.instance.end_date if self.instance else None)
+        listing = attrs.get('listing') or (self.instance.listing if self.instance else None)
+
+        if listing.landlord == request.user:
+            raise serializers.ValidationError('You cannot book your own listing.')
+
+        if not listing.is_active:
+            raise serializers.ValidationError('This listing is currently not available for booking.')
 
         if start_date >= end_date:
             raise serializers.ValidationError('End date must be after start date.')
 
-        if start_date < timezone.now().date():
-            raise serializers.ValidationError('Start date cannot be in the past.')
+        if start_date < timezone.now().date() + timedelta(days=7):
+            raise serializers.ValidationError('Bookings must be made at least 7 days in advance.')
+
+        if start_date > timezone.now().date() + timedelta(days=365):
+            raise serializers.ValidationError('Bookings cannot be made more than 1 year in advance.')
 
         overlapping = Booking.objects.filter(
             listing=listing,
@@ -37,6 +49,9 @@ class BookingSerializer(serializers.ModelSerializer):
             start_date__lt=end_date,
             end_date__gt=start_date,
         )
+        if self.instance:
+            overlapping = overlapping.exclude(pk=self.instance.pk)
+
         if overlapping.exists():
             raise serializers.ValidationError('These dates are already booked for this listing.')
 
