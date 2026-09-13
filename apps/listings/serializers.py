@@ -11,10 +11,10 @@ class ListingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Listing
         fields = (
-            'id', 'landlord', 'title', 'description', 'city', 'district',
-            'price', 'price_display', 'rooms', 'property_type', 'is_active',
-            'created_at', 'updated_at',
-        )
+        'id', 'landlord', 'title', 'description', 'city', 'district',
+        'street_address', 'price', 'price_display', 'rooms',
+        'property_type', 'is_active', 'created_at', 'updated_at',
+    )
         read_only_fields = ('id', 'landlord', 'created_at', 'updated_at')
 
     def get_price_display(self, obj):
