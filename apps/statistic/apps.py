@@ -2,4 +2,4 @@ from django.apps import AppConfig
 
 
 class StatisticConfig(AppConfig):
-    name = 'apps.statistics'
+    name = 'apps.statistic'
