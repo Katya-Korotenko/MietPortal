@@ -8,6 +8,9 @@ from .models import UserBasic
 class CustomUserAdmin(UserAdmin):
     search_fields = ('username', 'email')
     list_display = ('username', 'email', 'is_staff', 'is_active', 'get_groups')
+    fieldsets = UserAdmin.fieldsets + (
+        (None, {'fields': ('phone_number',)}),
+    )
 
     def get_groups(self, obj):
         return ", ".join([g.name for g in obj.groups.all()])
