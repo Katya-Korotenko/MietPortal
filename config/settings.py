@@ -8,7 +8,6 @@ import environ
 
 env = environ.Env(
     DEBUG=(bool, True),
-    MYSQL=(bool, False),
 )
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -37,6 +36,7 @@ INSTALLED_APPS = [
     'django_filters',
     'drf_spectacular',
     'simple_history',
+    'rest_framework_simplejwt.token_blacklist',
 
     # Local apps
     'core',
@@ -44,7 +44,7 @@ INSTALLED_APPS = [
     'apps.listings.apps.ListingsConfig',
     'apps.bookings.apps.BookingsConfig',
     'apps.reviews.apps.ReviewsConfig',
-    'apps.statistics.apps.StatisticConfig',
+    'apps.statistic.apps.StatisticConfig',
 ]
 
 MIDDLEWARE = [
@@ -81,26 +81,18 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
-MYSQL = env("MYSQL")
 
-if MYSQL:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': env("MYSQL_NAME"),
-            'USER': env("MYSQL_USER"),
-            'PASSWORD': env("MYSQL_PASSWORD"),
-            'HOST': env("MYSQL_HOST"),
-            'PORT': env("MYSQL_PORT"),
-        }
+
+DATABASES = {
+    'default': {
+        'ENGINE': env('DB_ENGINE', default='django.db.backends.sqlite3'),
+        'NAME': env('DB_NAME', default=str(BASE_DIR / 'db.sqlite3')),
+        'USER': env('DB_USER', default=''),
+        'PASSWORD': env('DB_PASSWORD', default=''),
+        'HOST': env('DB_HOST', default=''),
+        'PORT': env('DB_PORT', default=''),
     }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
+}
 
 
 # Custom user model
