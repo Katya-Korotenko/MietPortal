@@ -13,3 +13,5 @@ class SearchQueryAdmin(admin.ModelAdmin):
 class ViewHistoryAdmin(admin.ModelAdmin):
     list_display = ('listing', 'user', 'viewed_at')
     list_filter = ('viewed_at',)
+    search_fields = ('listing__title', 'user__username')
+    readonly_fields = ('listing', 'user', 'viewed_at')

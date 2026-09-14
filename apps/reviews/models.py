@@ -16,5 +16,11 @@ class Review(models.Model):
     comment = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Review'
+        verbose_name_plural = 'Reviews'
+
     def __str__(self):
         return f'{self.booking} — {self.rating}'

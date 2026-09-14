@@ -8,6 +8,11 @@ class SearchQuery(models.Model):
     query_text = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Search Query'
+        verbose_name_plural = 'Search Queries'
+
     def __str__(self):
         return self.query_text
 

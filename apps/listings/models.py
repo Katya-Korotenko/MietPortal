@@ -18,7 +18,7 @@ class Listing(TimeStampedModel, SoftDeleteModel):
     district = models.CharField(max_length=100, blank=True, null=True)
     street_address = models.CharField(max_length=255)
     price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(1.00)])
-    rooms = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
+    rooms = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(10)])
     property_type = models.CharField(max_length=20, choices=PropertyType.choices)
     is_active = models.BooleanField(default=True)
     class Meta:
@@ -33,7 +33,7 @@ class Listing(TimeStampedModel, SoftDeleteModel):
         ]
         constraints = [
         models.UniqueConstraint(
-            fields=['city', 'street_address'],
+            fields=['landlord', 'city', 'street_address'],
             condition=models.Q(is_deleted=False),
             name='unique_active_listing_per_address',
         )

@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.utils.html import format_html
 from simple_history.admin import SimpleHistoryAdmin
 
 from .models import Booking
@@ -6,5 +7,23 @@ from .models import Booking
 
 @admin.register(Booking)
 class BookingAdmin(SimpleHistoryAdmin):
-    list_display = ('listing', 'start_date', 'end_date', 'status', 'created_at')
-    list_filter = ('status',)
+    list_display = ('listing', 'tenant', 'start_date', 'end_date', 'status_display', 'created_at')
+    list_filter = ('status', 'start_date', 'created_at')
+    search_fields = ('listing__title', 'tenant__username', 'tenant__email')
+    date_hierarchy = 'start_date'
+    readonly_fields = ('created_at', 'updated_at')
+    autocomplete_fields = ('listing', 'tenant')
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('listing', 'tenant')
+
+    def status_display(self, obj):
+        colors = {
+            'pending': 'orange',
+            'confirmed': 'green',
+            'rejected': 'red',
+            'cancelled': 'gray',
+        }
+        color = colors.get(obj.status, 'black')
+        return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, obj.get_status_display())
+    status_display.short_description = 'Status'
