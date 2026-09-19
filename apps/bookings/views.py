@@ -6,6 +6,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from core.choices import Status as BookingStatus
+from core.constants import MIN_BOOKING_CANCEL_ADVANCE_DAYS
 from core.permissions import IsTenant
 from .models import Booking
 from .permissions import IsBookingTenant, IsBookingLandlord
@@ -13,9 +14,17 @@ from .serializers import BookingSerializer
 
 
 class BookingViewSet(viewsets.ModelViewSet):
+    """Booking CRUD plus status-transition actions.
+
+        Visibility and permissions differ by role: a tenant only sees/creates
+        their own bookings; a landlord only sees bookings on their own listings
+        and can only confirm/reject them, never create or cancel.
+    """
     serializer_class = BookingSerializer
+    http_method_names = ['get', 'post', 'head', 'options']
 
     def get_queryset(self):
+        """Tenants see their own bookings; landlords see bookings made on their listings."""
         user = self.request.user
         if user.is_landlord:
             return Booking.objects.filter(listing__landlord=user)
@@ -35,6 +44,9 @@ class BookingViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
+        """Tenant-only: cancel a pending or confirmed booking, allowed only
+                if at least MIN_BOOKING_CANCEL_ADVANCE_DAYS remain before check-in.
+        """
         booking = self.get_object()
 
         if booking.status not in (BookingStatus.PENDING, BookingStatus.CONFIRMED):
@@ -42,9 +54,10 @@ class BookingViewSet(viewsets.ModelViewSet):
                 {'detail': 'This booking cannot be cancelled.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        if booking.start_date < (timezone.now().date() + timedelta(days=7)):
+        if booking.start_date < (timezone.now().date() + timedelta(days=MIN_BOOKING_CANCEL_ADVANCE_DAYS)):
             return Response(
-                {'detail': 'Cancellation is only allowed at least 7 days before check-in.'},
+                {'detail': f'Cancellation is only allowed at least {MIN_BOOKING_CANCEL_ADVANCE_DAYS} '
+                           f'days before check-in.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -54,6 +67,7 @@ class BookingViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def confirm(self, request, pk=None):
+        """Landlord-only: accept a pending booking request."""
         booking = self.get_object()
 
         if booking.status != BookingStatus.PENDING:
@@ -68,6 +82,7 @@ class BookingViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
+        """Landlord-only: decline a pending booking request."""
         booking = self.get_object()
 
         if booking.status != BookingStatus.PENDING:
