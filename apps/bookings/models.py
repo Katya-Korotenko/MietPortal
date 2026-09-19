@@ -3,9 +3,17 @@ from django.db import models
 from simple_history.models import HistoricalRecords
 
 from core.choices import Status
+from core.models import TimeStampedModel
 
 
-class Booking(models.Model):
+class Booking(TimeStampedModel):
+    """A tenant's reservation for a listing over a date range.
+
+        listing/tenant use PROTECT instead of CASCADE so that deleting a listing
+        or a user never silently destroys booking history. Status transitions
+        (confirm/reject/cancel) are handled in the view, not here.
+    """
+
     listing = models.ForeignKey(
         'listings.Listing',
         on_delete=models.PROTECT,
@@ -13,14 +21,12 @@ class Booking(models.Model):
     )
     tenant = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,  
+        on_delete=models.PROTECT,
         related_name='bookings',
     )
     start_date = models.DateField()
     end_date = models.DateField()
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
     history = HistoricalRecords()
 
     class Meta:

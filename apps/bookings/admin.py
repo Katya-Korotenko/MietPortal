@@ -7,6 +7,7 @@ from .models import Booking
 
 @admin.register(Booking)
 class BookingAdmin(SimpleHistoryAdmin):
+    """Renders the booking status as colored text for quick visual scanning in the admin list."""
     list_display = ('listing', 'tenant', 'start_date', 'end_date', 'status_display', 'created_at')
     list_filter = ('status', 'start_date', 'created_at')
     search_fields = ('listing__title', 'tenant__username', 'tenant__email')

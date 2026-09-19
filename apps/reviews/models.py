@@ -5,6 +5,14 @@ from apps.bookings.models import Booking
 
 
 class Review(models.Model):
+    """A review left by a tenant for a completed booking.
+
+        Linked to Booking (not directly to Listing/User) so that the same tenant
+        can leave a separate review for each distinct stay, while OneToOneField
+        guarantees at most one review per booking. All eligibility rules (must be
+        the tenant, must be confirmed, must have ended) live in the serializer's
+        validate_booking(), not here.
+    """
     booking = models.OneToOneField(
         Booking,
         on_delete=models.CASCADE,

@@ -9,10 +9,15 @@ from .models import SearchQuery
 
 
 class StatisticsViewSet(viewsets.GenericViewSet):
+    """Read-only aggregation endpoints — no CRUD, just two public reports
+        built from the ViewHistory/SearchQuery records logged automatically by
+        ListingViewSet.
+    """
     permission_classes = [permissions.AllowAny]
 
     @action(detail=False, methods=['get'])
     def popular_searches(self, request):
+        """Top 10 search terms, grouped by exact normalized text, ordered by frequency."""
         queryset = (
             SearchQuery.objects
             .values('query_text')
@@ -23,6 +28,7 @@ class StatisticsViewSet(viewsets.GenericViewSet):
 
     @action(detail=False, methods=['get'])
     def popular_listings(self, request):
+        """Top 10 listings ordered by total view count (views relation from ViewHistory)."""
         queryset = (
             Listing.objects
             .annotate(views_count=Count('views'))

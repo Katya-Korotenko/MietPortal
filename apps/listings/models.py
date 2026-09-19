@@ -7,6 +7,13 @@ from core.models import TimeStampedModel, SoftDeleteModel
 
 
 class Listing(TimeStampedModel, SoftDeleteModel):
+    """A rental property listing owned by a landlord.
+
+        Uses soft delete so that removing a listing never breaks the history of
+        bookings/reviews tied to it. The unique constraint on
+        (landlord, city, street_address) only applies to non-deleted listings,
+        so a landlord can re-list at the same address after deleting the old one.
+    """
     landlord = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,

@@ -5,6 +5,9 @@ from apps.listings.models import Listing
 
 
 class SearchQuery(models.Model):
+    """A single logged search term (normalized: stripped and lowercased
+        before saving), used to compute the most popular searches.
+    """
     query_text = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -17,6 +20,13 @@ class SearchQuery(models.Model):
         return self.query_text
 
 class ViewHistory(models.Model):
+    """A single view of a listing.
+
+        The unique constraint only applies when user is set — an authenticated
+        user's repeat views of the same listing are deduplicated, but anonymous
+        views (user=None) are never deduplicated, since anonymous visitors can't
+        be told apart from one another.
+    """
     listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name='views')
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

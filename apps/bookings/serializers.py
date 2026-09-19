@@ -4,12 +4,16 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from core.choices import Status
-from core.constants import DATE_INPUT_FORMATS, MAX_BOOKING_ADVANCE_DAYS, MIN_BOOKING_ADVANCE_DAYS
+from core.constants import DATE_INPUT_FORMATS, MAX_BOOKING_CREATE_ADVANCE_DAYS, MIN_BOOKING_CREATE_ADVANCE_DAYS
 from .models import Booking
 
 
 
 class BookingSerializer(serializers.ModelSerializer):
+    """Serializes a booking. Accepts multiple date formats (see DATE_INPUT_FORMATS);
+    status/id/timestamps are read-only — status changes only happen through
+    the confirm/reject/cancel actions on the view, never via direct update.
+    """
     tenant = serializers.ReadOnlyField(source='tenant.username')
     start_date = serializers.DateField(input_formats=DATE_INPUT_FORMATS)
     end_date = serializers.DateField(input_formats=DATE_INPUT_FORMATS)
@@ -23,6 +27,9 @@ class BookingSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'status', 'created_at', 'updated_at')
 
     def validate(self, attrs):
+        """Runs all booking-creation business rules together, since they depend
+            on multiple fields at once (dates + listing) rather than a single field.
+        """
         request = self.context['request']
         start_date = attrs.get('start_date') or (self.instance.start_date if self.instance else None)
         end_date = attrs.get('end_date') or (self.instance.end_date if self.instance else None)
@@ -37,11 +44,13 @@ class BookingSerializer(serializers.ModelSerializer):
         if start_date >= end_date:
             raise serializers.ValidationError('End date must be after start date.')
 
-        if start_date < timezone.now().date() + timedelta(days=MIN_BOOKING_ADVANCE_DAYS):
-            raise serializers.ValidationError('Bookings must be made at least 7 days in advance.')
+        if start_date < timezone.now().date() + timedelta(days=MIN_BOOKING_CREATE_ADVANCE_DAYS):
+            raise serializers.ValidationError(f'Bookings must be made at least {MIN_BOOKING_CREATE_ADVANCE_DAYS} '
+                                              f'days in advance.')
 
-        if start_date > timezone.now().date() + timedelta(days=MAX_BOOKING_ADVANCE_DAYS):
-            raise serializers.ValidationError('Bookings cannot be made more than 1 year in advance.')
+        if start_date > timezone.now().date() + timedelta(days=MAX_BOOKING_CREATE_ADVANCE_DAYS):
+            raise serializers.ValidationError(f'Bookings cannot be made more than {MAX_BOOKING_CREATE_ADVANCE_DAYS} '
+                                              f'year in advance.')
 
         overlapping = Booking.objects.filter(
             listing=listing,
