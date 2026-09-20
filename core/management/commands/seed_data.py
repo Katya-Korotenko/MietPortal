@@ -4,6 +4,7 @@ from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.management.base import BaseCommand
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 from faker import Faker
 
@@ -29,13 +30,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         if options['flush']:
-            self.stdout.write('Flushing existing data...')
-            ViewHistory.objects.all().delete()
-            SearchQuery.objects.all().delete()
-            Review.objects.all().delete()
-            Booking.objects.all().delete()
-            Listing.all_objects.all().delete()
-            User.objects.filter(is_superuser=False).delete()
+            self._flush()
 
         tenant_group, _ = Group.objects.get_or_create(name=TENANT_GROUP)
         landlord_group, _ = Group.objects.get_or_create(name=LANDLORD_GROUP)
@@ -58,6 +53,26 @@ class Command(BaseCommand):
             f'{len(listings)} listings, {len(bookings)} bookings.'
         ))
 
+    # --- teardown -----------------------------------------------------------
+
+    def _flush(self):
+        """Deletes previously seeded data in dependency order (children before
+        parents), so PROTECT on Booking.listing/Booking.tenant never blocks
+        the cleanup. Uses Listing.all_objects (not the default soft-delete
+        manager) so soft-deleted rows are also wiped, and QuerySet.delete()
+        (not the model's overridden .delete()) so this is a real hard delete —
+        Django's queryset delete always bypasses the per-instance override.
+        """
+        self.stdout.write('Flushing existing data...')
+        ViewHistory.objects.all().delete()
+        SearchQuery.objects.all().delete()
+        Review.objects.all().delete()
+        Booking.objects.all().delete()
+        Listing.all_objects.all().delete()
+        User.objects.filter(is_superuser=False).delete()
+
+    # --- users ----------------------------------------------------------------
+
     def _create_users(self, count, group, prefix):
         users = []
         for i in range(count):
@@ -73,30 +88,67 @@ class Command(BaseCommand):
             users.append(user)
         return users
 
+    # --- listings ---------------------------------------------------------------
+
     def _create_listings(self, landlords, per_landlord):
+        """Creates `per_landlord` listings for each landlord.
+
+        (landlord, city, street_address) is unique for non-deleted listings
+        (see Listing.Meta.constraints), so a random Faker address can
+        occasionally collide with one already used by the same landlord in
+        the same city. Each attempt is wrapped in its own atomic block and
+        retried with a fresh address on IntegrityError, instead of letting a
+        rare collision abort the whole command partway through.
+        """
         listings = []
         cities = ['Berlin', 'Munich', 'Hamburg', 'Cologne', 'Frankfurt']
+        max_attempts = 5
+
         for landlord in landlords:
             for _ in range(per_landlord):
-                listing = Listing.objects.create(
-                    landlord=landlord,
-                    title=fake.catch_phrase(),
-                    description=fake.paragraph(nb_sentences=4),
-                    city=random.choice(cities),
-                    district=fake.city_suffix(),
-                    street_address=fake.street_address(),
-                    price=random.randint(400, 2500),
-                    rooms=random.randint(1, 5),
-                    property_type=random.choice(PropertyType.values),
-                    is_active=random.choice([True, True, True, False]),  # mostly active
-                )
-                listings.append(listing)
+                for attempt in range(max_attempts):
+                    try:
+                        with transaction.atomic():
+                            listing = Listing.objects.create(
+                                landlord=landlord,
+                                title=fake.catch_phrase(),
+                                description=fake.paragraph(nb_sentences=4),
+                                city=random.choice(cities),
+                                district=fake.city_suffix(),
+                                street_address=fake.street_address(),
+                                price=random.randint(400, 2500),
+                                rooms=random.randint(1, 5),
+                                property_type=random.choice(PropertyType.values),
+                                is_active=random.choice([True, True, True, False]),  # mostly active
+                            )
+                        listings.append(listing)
+                        break
+                    except IntegrityError:
+                        if attempt == max_attempts - 1:
+                            self.stdout.write(self.style.WARNING(
+                                f'Skipped a listing for {landlord.username}: '
+                                f'could not find a free address after {max_attempts} attempts.'
+                            ))
         return listings
 
+    # --- bookings -----------------------------------------------------------------
+
     def _create_bookings(self, listings, tenants):
+        """Creates bookings directly via the ORM, bypassing BookingSerializer.
+        validate() entirely — so, unlike real API-created bookings, these can
+        freely fall outside the min/max advance-notice window or even be in
+        the past. That's intentional here: it gives seeded data a realistic
+        spread of past/future/pending/confirmed bookings for demoing filters
+        and the reviews flow, which all need some already-completed bookings
+        to work with.
+        """
         bookings = []
         statuses = [Status.PENDING, Status.CONFIRMED, Status.REJECTED, Status.CANCELLED]
-        for listing in random.sample(listings, k=min(len(listings), len(listings) * 2 // 3)):
+        if not listings or not tenants:
+            return bookings
+
+        sample_size = min(len(listings), max(1, len(listings) * 2 // 3))
+        for listing in random.sample(listings, k=sample_size):
             tenant = random.choice(tenants)
             days_offset = random.randint(-60, 60)
             start_date = timezone.now().date() + timedelta(days=days_offset)
@@ -111,6 +163,8 @@ class Command(BaseCommand):
             bookings.append(booking)
         return bookings
 
+    # --- reviews --------------------------------------------------------------
+
     def _create_reviews(self, bookings):
         past_confirmed = [
             b for b in bookings
@@ -124,7 +178,11 @@ class Command(BaseCommand):
                     comment=fake.sentence(nb_words=12),
                 )
 
+    # --- statistics -----------------------------------------------------------
+
     def _create_view_history(self, listings, tenants):
+        if not tenants:
+            return
         for listing in listings:
             viewers = random.sample(tenants, k=random.randint(0, len(tenants)))
             for viewer in viewers:
@@ -137,3 +195,4 @@ class Command(BaseCommand):
         for term in terms:
             for _ in range(random.randint(1, 8)):
                 SearchQuery.objects.create(query_text=term)
+
