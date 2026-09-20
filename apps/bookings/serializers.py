@@ -17,14 +17,21 @@ class BookingSerializer(serializers.ModelSerializer):
     tenant = serializers.ReadOnlyField(source='tenant.username')
     start_date = serializers.DateField(input_formats=DATE_INPUT_FORMATS)
     end_date = serializers.DateField(input_formats=DATE_INPUT_FORMATS)
+    total_price = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
         fields = (
             'id', 'listing', 'tenant', 'start_date', 'end_date',
-            'status', 'created_at', 'updated_at',
+            'status', 'total_price', 'created_at', 'updated_at',
         )
         read_only_fields = ('id', 'status', 'created_at', 'updated_at')
+
+    def get_total_price(self, obj):
+        """Nightly rate × number of nights stayed (end_date - start_date),
+        since this is a per-night rental model, not per-month."""
+        nights = (obj.end_date - obj.start_date).days
+        return obj.listing.price * nights
 
     def validate(self, attrs):
         """Runs all booking-creation business rules together, since they depend
