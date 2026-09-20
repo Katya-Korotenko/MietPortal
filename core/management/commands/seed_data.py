@@ -91,24 +91,27 @@ class Command(BaseCommand):
     # --- listings ---------------------------------------------------------------
 
     def _create_listings(self, landlords, per_landlord):
-        """Creates `per_landlord` listings for each landlord.
-
-        (landlord, city, street_address) is unique for non-deleted listings
-        (see Listing.Meta.constraints), so a random Faker address can
-        occasionally collide with one already used by the same landlord in
-        the same city. Each attempt is wrapped in its own atomic block and
-        retried with a fresh address on IntegrityError, instead of letting a
-        rare collision abort the whole command partway through.
-        """
+        """..."""
         listings = []
         cities = ['Berlin', 'Munich', 'Hamburg', 'Cologne', 'Frankfurt']
         max_attempts = 5
+
+        # Keeps rooms/price realistic relative to property type, instead of
+        # picking them independently at random.
+        property_profiles = {
+            PropertyType.STUDIO: {'rooms': (1, 1), 'price': (30, 70)},
+            PropertyType.APARTMENT: {'rooms': (2, 4), 'price': (50, 150)},
+            PropertyType.HOUSE: {'rooms': (3, 6), 'price': (100, 300)},
+        }
 
         for landlord in landlords:
             for _ in range(per_landlord):
                 for attempt in range(max_attempts):
                     try:
                         with transaction.atomic():
+                            property_type = random.choice(PropertyType.values)
+                            profile = property_profiles[property_type]
+
                             listing = Listing.objects.create(
                                 landlord=landlord,
                                 title=fake.catch_phrase(),
@@ -116,10 +119,10 @@ class Command(BaseCommand):
                                 city=random.choice(cities),
                                 district=fake.city_suffix(),
                                 street_address=fake.street_address(),
-                                price=random.randint(400, 2500),
-                                rooms=random.randint(1, 5),
-                                property_type=random.choice(PropertyType.values),
-                                is_active=random.choice([True, True, True, False]),  # mostly active
+                                price=random.randint(*profile['price']),
+                                rooms=random.randint(*profile['rooms']),
+                                property_type=property_type,
+                                is_active=random.choice([True, True, True, False]),
                             )
                         listings.append(listing)
                         break
@@ -139,8 +142,12 @@ class Command(BaseCommand):
         freely fall outside the min/max advance-notice window or even be in
         the past. That's intentional here: it gives seeded data a realistic
         spread of past/future/pending/confirmed bookings for demoing filters
-        and the reviews flow, which all need some already-completed bookings
-        to work with.
+        and the reviews flow.
+
+        At least 40% of bookings are deliberately forced into
+        "past + confirmed" (rather than left to chance), since reviews and
+        the popularity stats both need a guaranteed pool of eligible,
+        completed bookings to be visible in a small seeded dataset.
         """
         bookings = []
         statuses = [Status.PENDING, Status.CONFIRMED, Status.REJECTED, Status.CANCELLED]
@@ -148,17 +155,30 @@ class Command(BaseCommand):
             return bookings
 
         sample_size = min(len(listings), max(1, len(listings) * 2 // 3))
-        for listing in random.sample(listings, k=sample_size):
+        chosen_listings = random.sample(listings, k=sample_size)
+
+        guaranteed_reviewable_count = max(1, sample_size * 4 // 10)  # ~40%
+
+        for index, listing in enumerate(chosen_listings):
             tenant = random.choice(tenants)
-            days_offset = random.randint(-60, 60)
-            start_date = timezone.now().date() + timedelta(days=days_offset)
-            end_date = start_date + timedelta(days=random.randint(3, 14))
+
+            if index < guaranteed_reviewable_count:
+                # Force a completed, confirmed stay in the past.
+                start_date = timezone.now().date() - timedelta(days=random.randint(20, 60))
+                end_date = start_date + timedelta(days=random.randint(3, 14))
+                status_value = Status.CONFIRMED
+            else:
+                days_offset = random.randint(-60, 60)
+                start_date = timezone.now().date() + timedelta(days=days_offset)
+                end_date = start_date + timedelta(days=random.randint(3, 14))
+                status_value = random.choice(statuses)
+
             booking = Booking.objects.create(
                 listing=listing,
                 tenant=tenant,
                 start_date=start_date,
                 end_date=end_date,
-                status=random.choice(statuses),
+                status=status_value,
             )
             bookings.append(booking)
         return bookings
