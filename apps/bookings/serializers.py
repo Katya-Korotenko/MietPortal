@@ -50,7 +50,7 @@ class BookingSerializer(serializers.ModelSerializer):
 
         if start_date > timezone.now().date() + timedelta(days=MAX_BOOKING_CREATE_ADVANCE_DAYS):
             raise serializers.ValidationError(f'Bookings cannot be made more than {MAX_BOOKING_CREATE_ADVANCE_DAYS} '
-                                              f'year in advance.')
+                                              f'days in advance.')
 
         overlapping = Booking.objects.filter(
             listing=listing,
