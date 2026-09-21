@@ -1,23 +1,25 @@
-# MietPortal — Backend для системы аренды жилья
+# MietPortal — Rental Housing Platform Backend
 
-Backend-приложение на Django + Django REST Framework для платформы аренды
-жилья: объявления, поиск и фильтрация, бронирование, отзывы, статистика
-популярности — с ролевой моделью «арендатор / арендодатель».
+🇷🇺 [Русская версия](README.ru.md)
 
-## Стек технологий
+A Django + Django REST Framework backend for a rental housing platform:
+listings, search and filtering, bookings, reviews, and popularity
+statistics — with a "tenant / landlord" role model.
+
+## Tech Stack
 
 - **Django** + **Django REST Framework** — API
-- **MySQL** (движок задаётся через `DB_ENGINE` в `.env` — без правки кода
-  можно переключиться на PostgreSQL/SQLite)
-- **SimpleJWT** — аутентификация по токенам, с blacklist для logout
-- **django-filter** — фильтрация объявлений
-- **drf-spectacular** — автодокументация API (Swagger UI)
-- **django-simple-history** — история изменений бронирований
-- **WhiteNoise** — раздача статики без отдельного веб-сервера
-- **Docker / docker-compose** — контейнеризация и локальный запуск
-- **Faker** — генерация тестовых данных для разработки
+- **MySQL** (engine is set via `DB_ENGINE` in `.env` — switching to
+  PostgreSQL/SQLite requires no code changes)
+- **SimpleJWT** — token-based authentication, with a blacklist for logout
+- **django-filter** — listing filtering
+- **drf-spectacular** — API auto-documentation (Swagger UI)
+- **django-simple-history** — booking change history
+- **WhiteNoise** — serves static files without a separate web server
+- **Docker / docker-compose** — containerization and local runs
+- **Faker** — test data generation for development
 
-## Структура проекта
+## Project Structure
 
 ```
 MietPortal/
@@ -28,65 +30,65 @@ MietPortal/
 ├── dockerignore
 ├── .env.example
 │
-├── config/                      # настройки Django-проекта
-│   ├── settings.py                  # DB_ENGINE, JWT, DRF, приложения
+├── config/                      # Django project settings
+│   ├── settings.py                  # DB_ENGINE, JWT, DRF, installed apps
 │   ├── urls.py
 │   ├── wsgi.py / asgi.py
 │
-├── core/                        # общая инфраструктура для всех apps
+├── core/                        # shared infrastructure for all apps
 │   ├── models.py                    # UniqueID (UUID pk), TimeStampedModel, SoftDeleteModel
 │   ├── choices.py                   # PropertyType, Status
-│   ├── constants.py                  # роли, лимиты по датам, валюта, regex телефона
+│   ├── constants.py                  # roles, date limits, currency, phone regex
 │   ├── permissions.py                # IsLandlord, IsTenant, IsOwnerOrReadOnly
 │   ├── tests.py
 │   └── management/commands/
-│       └── seed_data.py               # наполнение локальной БД тестовыми данными
+│       └── seed_data.py               # populates the local DB with test data
 │
 ├── apps/
-│   ├── users/                    # кастомный User (роль через Group), JWT-аутентификация
-│   │   ├── migrations/                # включая 0002_create_groups — создаёт Tenant/Landlord
+│   ├── users/                    # custom User (role via Group), JWT auth
+│   │   ├── migrations/                # incl. 0002_create_groups — creates Tenant/Landlord
 │   │   ├── admin.py
 │   │   ├── apps.py
-│   │   ├── models.py                  # UserBasic — вход по email, UUID id
-│   │   ├── serializers.py             # регистрация с назначением роли, профиль /me/
+│   │   ├── models.py                  # UserBasic — login by email, UUID id
+│   │   ├── serializers.py             # registration with role assignment, /me/ profile
 │   │   ├── tests.py
 │   │   ├── urls.py
 │   │   └── views.py                   # RegisterView, LogoutView (blacklist), MeView
 │   │
-│   ├── listings/                 # объявления — ядро приложения
+│   ├── listings/                 # listings — the core of the app
 │   │   ├── migrations/
 │   │   ├── admin.py
 │   │   ├── apps.py
-│   │   ├── filters.py                 # фильтрация по цене/комнатам/городу/типу
-│   │   ├── models.py                  # Listing (soft delete, unique constraint по адресу)
+│   │   ├── filters.py                 # filtering by price/rooms/city/type
+│   │   ├── models.py                  # Listing (soft delete, unique constraint on address)
 │   │   ├── serializers.py
 │   │   ├── tests.py
 │   │   ├── urls.py
-│   │   └── views.py                   # CRUD + логирование просмотров/поиска
+│   │   └── views.py                   # CRUD + view/search logging
 │   │
-│   ├── bookings/                  # бронирование
+│   ├── bookings/                  # bookings
 │   │   ├── migrations/
 │   │   ├── admin.py
 │   │   ├── apps.py
-│   │   ├── models.py                  # Booking (история через simple_history)
+│   │   ├── models.py                  # Booking (history via simple_history)
 │   │   ├── permissions.py             # IsBookingTenant, IsBookingLandlord
-│   │   ├── serializers.py             # валидация дат, пересечений, сроков
+│   │   ├── serializers.py             # date, overlap, and deadline validation
 │   │   ├── tests.py
 │   │   ├── urls.py
-│   │   └── views.py                   # confirm / reject / cancel как отдельные actions
+│   │   └── views.py                   # confirm / reject / cancel as separate actions
 │   │
-│   ├── reviews/                   # отзывы и рейтинги
+│   ├── reviews/                   # reviews and ratings
 │   │   ├── migrations/
 │   │   ├── admin.py
 │   │   ├── apps.py
-│   │   ├── models.py                   # Review (один отзыв на бронирование)
+│   │   ├── models.py                   # Review (one review per booking)
 │   │   ├── permissions.py              # IsReviewOwner
-│   │   ├── serializers.py              # право на отзыв только после завершённой аренды
+│   │   ├── serializers.py              # review eligibility only after a completed stay
 │   │   ├── tests.py
 │   │   ├── urls.py
 │   │   └── views.py
 │   │
-│   └── statistic/                  # история поиска и просмотров, топ по популярности
+│   └── statistic/                  # search/view history, popularity rankings
 │       ├── migrations/
 │       ├── admin.py
 │       ├── apps.py
@@ -95,145 +97,152 @@ MietPortal/
 │       ├── urls.py
 │       └── views.py                     # popular_searches, popular_listings
 │
-└── staticfiles/                   # собранная статика (Django admin, DRF browsable API)
+└── staticfiles/                   # collected static files (Django admin, DRF browsable API)
 ```
 
-Каждое приложение — стандартный Django-app: `admin.py`, `apps.py`,
-`models.py`, `tests.py`, `urls.py`, `views.py` и `migrations/` есть
-**везде**, это не опция, а гарантированный минимум для любого приложения
-с моделью. Точечные дополнения — `serializers.py` есть во всех, кроме
-`statistic` (там оба эндпоинта отдают агрегированные данные напрямую через
-`Response()`/переиспользуют `ListingSerializer` из `listings`, а не
-описывают свою модель для сериализации); `permissions.py` — там, где нужна
-своя логика прав (`bookings`, `reviews`, `core`); `filters.py` — только в
-`listings`.
+Every app follows the standard Django-app layout: `admin.py`, `apps.py`,
+`models.py`, `tests.py`, `urls.py`, `views.py`, and `migrations/` exist
+**everywhere** — this is not optional, it's the guaranteed minimum for any
+app with a model. The targeted additions are: `serializers.py`, present in
+every app except `statistic` (there, both endpoints return aggregated data
+directly via `Response()` / reuse `ListingSerializer` from `listings`
+rather than defining their own serialization model); `permissions.py` —
+wherever custom permission logic is needed (`bookings`, `reviews`, `core`);
+`filters.py` — only in `listings`.
 
-## Роли и права доступа
+## Roles and Permissions
 
-Роль пользователя (арендатор/арендодатель) реализована через встроенный
-механизм Django `Group`, а не через отдельное поле — это даёт готовую
-интеграцию с системой прав Django admin. Группы `Tenant`/`Landlord`
-создаются автоматически миграцией `apps/users/migrations/0002_create_groups.py`.
-Свойства `is_tenant`/`is_landlord` на модели `User` скрывают детали
-реализации.
+The user's role (tenant/landlord) is implemented through Django's built-in
+`Group` mechanism rather than a dedicated field — this gives ready-made
+integration with the Django admin permission system. The `Tenant`/`Landlord`
+groups are created automatically by the
+`apps/users/migrations/0002_create_groups.py` migration. The
+`is_tenant`/`is_landlord` properties on the `User` model hide the
+implementation details.
 
-| Действие | Арендатор | Арендодатель |
+| Action | Tenant | Landlord |
 |---|---|---|
-| Просмотр и поиск объявлений | ✅ | ✅ |
-| Создание/редактирование объявлений | ❌ | ✅ (только свои) |
-| Бронирование | ✅ | ❌ |
-| Подтверждение/отклонение брони | ❌ | ✅ (только на свои объявления) |
-| Отмена брони | ✅ (только своей, за 7+ дней) | ❌ |
-| Отзыв на жильё | ✅ (после завершённой аренды) | — |
+| View and search listings | ✅ | ✅ |
+| Create/edit listings | ❌ | ✅ (own listings only) |
+| Book a listing | ✅ | ❌ |
+| Confirm/reject a booking | ❌ | ✅ (on own listings only) |
+| Cancel a booking | ✅ (own bookings only, 7+ days ahead) | ❌ |
+| Leave a review | ✅ (after a completed stay) | — |
 
-## Особенности реализации
+## Implementation Notes
 
-- **Soft delete** — удаление объявлений не стирает данные, а помечает
-  `is_deleted=True`, сохраняя историю бронирований/отзывов. Жёсткое удаление
-  доступно через `hard_delete()`.
-- **UUID вместо числового id** — у пользователей, чтобы идентификаторы не
-  были последовательно угадываемыми.
-- **Условные unique-ограничения** — уникальность объявления по адресу
-  действует только для неудалённых записей, что позволяет повторно
-  выставить объявление на тот же адрес после удаления старого.
-- **JWT logout через blacklist** — access-токены нельзя отозвать напрямую,
-  поэтому logout инвалидирует refresh-токен через
+- **Soft delete** — deleting a listing doesn't erase the data, it flags
+  `is_deleted=True`, preserving the history of related bookings/reviews.
+  A real, permanent deletion is available via `hard_delete()`.
+- **UUID instead of a numeric id** — used for users, so identifiers aren't
+  sequentially guessable.
+- **Conditional unique constraints** — a listing's address is unique only
+  among non-deleted records, allowing the same address to be re-listed
+  after the old listing is deleted.
+- **JWT logout via blacklist** — access tokens can't be revoked directly,
+  so logout invalidates the refresh token through
   `rest_framework_simplejwt.token_blacklist`.
-- **Универсальный `DB_ENGINE`** — движок базы данных задаётся переменной
-  окружения, без веток `if/else` в `settings.py`; поддерживается любой
-  движок, для которого установлен соответствующий драйвер.
+- **Universal `DB_ENGINE`** — the database engine is set via an
+  environment variable, with no `if/else` branching in `settings.py`; any
+  engine works as long as the matching driver is installed.
 
-## Быстрый старт (локально, без Docker)
+> **Known limitation:** MySQL does not support conditional (partial)
+> unique indexes (`UniqueConstraint(condition=Q(...))`). Django detects
+> this and skips creating the constraint at the database level (see the
+> `models.W036` warning during `migrate`), for both the listing-address
+> uniqueness rule and the view-history deduplication rule. Both rules are
+> still enforced at the application level — through `ListingSerializer.
+> validate()` for listings, and through `get_or_create()` for view
+> history — so the business rule holds for every request made through the
+> API. What's missing is the extra safety net a DB-level constraint would
+> provide against writes that bypass the API entirely (e.g. direct ORM
+> access or the Django admin). This is a deliberate trade-off driven by
+> the requirement to use MySQL as the primary database.
+
+## Quick Start (local, without Docker)
 
 ```bash
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-cp .env.example .env  # заполнить переменные
+cp .env.example .env  # fill in the variables
 
 python manage.py migrate
 python manage.py createsuperuser
 python manage.py runserver
 ```
 
-> **Обратите внимание:** `settings.py` читает переменные `SECRET_KEY`,
-> `DEBUG`, `ALLOWED_HOSTS`, а `.env.example` называет их с префиксом
-> `DJANGO_` (`DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`).
-> Перед первым запуском убедитесь, что имена переменных в вашем `.env`
-> совпадают с теми, что читает `settings.py`, иначе `env("SECRET_KEY")`
-> упадёт с ошибкой.
-
-## Запуск через Docker
+## Running with Docker
 
 ```bash
 cp .env.example .env
 docker compose up --build
 ```
 
-Поднимаются три сервиса:
+This brings up three services:
 - **db** — MySQL
-- **web** — Django + gunicorn (миграции и `collectstatic` выполняются
-  автоматически при старте)
-- **scheduler** — раз в неделю чистит просроченные JWT-токены
+- **web** — Django + gunicorn (migrations and `collectstatic` run
+  automatically on startup)
+- **scheduler** — clears expired JWT tokens once a week
   (`flushexpiredtokens`)
 
-Приложение доступно на `http://localhost:8000/`, документация API — на
+The app is available at `http://localhost:8000/`, and the API docs at
 `http://localhost:8000/api/docs/`.
 
-## Наполнение базы тестовыми данными
+## Seeding Test Data
 
-Для локальной разработки и демонстрации есть management-команда, которая
-генерирует реалистичный набор данных (пользователей, объявления,
-бронирования, отзывы, историю просмотров и поиска) через `Faker`:
+For local development and demos, a management command generates a
+realistic dataset (users, listings, bookings, reviews, view/search
+history) using `Faker`:
 
 ```bash
 python manage.py seed_data --flush
 ```
 
-Параметры:
-- `--landlords N` — количество арендодателей (по умолчанию 5)
-- `--tenants N` — количество арендаторов (по умолчанию 10)
-- `--listings-per-landlord N` — объявлений на арендодателя (по умолчанию 3)
-- `--flush` — удалить ранее сгенерированные данные перед созданием новых
+Options:
+- `--landlords N` — number of landlords (default 5)
+- `--tenants N` — number of tenants (default 10)
+- `--listings-per-landlord N` — listings per landlord (default 3)
+- `--flush` — delete previously seeded data before creating new data
 
-Все созданные пользователи имеют пароль `TestPass123`, email вида
+All generated users have the password `TestPass123`, with emails like
 `landlord0@example.com` / `tenant0@example.com`.
 
-> Данные создаются напрямую через ORM, в обход бизнес-валидации
-> `BookingSerializer` — это осознанно, чтобы получить реалистичный разброс
-> прошлых/будущих/разных по статусу бронирований для демонстрации фильтров
-> и потока отзывов.
+> Data is created directly through the ORM, bypassing
+> `BookingSerializer`'s business validation — this is intentional, to get
+> a realistic spread of past/future bookings with different statuses for
+> demoing filters and the review flow.
 
-## Тесты
+## Tests
 
 ```bash
 python manage.py test
 ```
 
-Тестами покрыты все приложения: права доступа по ролям, валидация бизнес-
-правил (пересечение дат бронирования, сроки, уникальность объявлений),
-soft/hard delete, JWT-аутентификация и blacklist, автоматический сбор
-статистики просмотров/поиска.
+Tests cover every app: role-based permissions, business-rule validation
+(booking date overlaps, deadlines, listing uniqueness), soft/hard delete,
+JWT authentication and blacklisting, and automatic view/search statistics
+collection.
 
-## Основные эндпоинты
+## Main Endpoints
 
-| Метод | Путь | Описание |
+| Method | Path | Description |
 |---|---|---|
-| POST | `/api/users/register/` | Регистрация (роль: tenant/landlord) |
-| POST | `/api/users/login/` | Получение JWT-токена (по email) |
-| POST | `/api/users/login/refresh/` | Обновление access-токена |
-| POST | `/api/users/logout/` | Logout (blacklist refresh-токена) |
-| GET/PATCH | `/api/users/me/` | Профиль текущего пользователя |
-| GET/POST | `/api/listings/` | Список объявлений / создание (landlord) |
-| GET/PATCH/DELETE | `/api/listings/{id}/` | Объявление |
-| GET/POST | `/api/bookings/` | Бронирования пользователя |
-| POST | `/api/bookings/{id}/confirm/` | Подтверждение (landlord) |
-| POST | `/api/bookings/{id}/reject/` | Отклонение (landlord) |
-| POST | `/api/bookings/{id}/cancel/` | Отмена (tenant, за 7+ дней) |
-| GET/POST | `/api/reviews/?listing={id}` | Отзывы по объявлению |
-| GET | `/api/statistic/popular_searches/` | Топ поисковых запросов |
-| GET | `/api/statistic/popular_listings/` | Топ объявлений по просмотрам |
+| POST | `/api/users/register/` | Registration (role: tenant/landlord) |
+| POST | `/api/users/login/` | Get a JWT token (by email) |
+| POST | `/api/users/login/refresh/` | Refresh the access token |
+| POST | `/api/users/logout/` | Logout (blacklists the refresh token) |
+| GET/PATCH | `/api/users/me/` | Current user's profile |
+| GET/POST | `/api/listings/` | List listings / create one (landlord) |
+| GET/PATCH/DELETE | `/api/listings/{id}/` | A single listing |
+| GET/POST | `/api/bookings/` | The user's bookings |
+| POST | `/api/bookings/{id}/confirm/` | Confirm (landlord) |
+| POST | `/api/bookings/{id}/reject/` | Reject (landlord) |
+| POST | `/api/bookings/{id}/cancel/` | Cancel (tenant, 7+ days ahead) |
+| GET/POST | `/api/reviews/?listing={id}` | Reviews for a listing |
+| GET | `/api/statistic/popular_searches/` | Top search queries |
+| GET | `/api/statistic/popular_listings/` | Top listings by views |
 
-Фильтрация объявлений: `?city=&district=&property_type=&min_price=&max_price=&min_rooms=&max_rooms=`,
-поиск: `?search=ключевое слово`, сортировка: `?ordering=price` / `-created_at`.
+Listing filters: `?city=&district=&property_type=&min_price=&max_price=&min_rooms=&max_rooms=`,
+search: `?search=keyword`, ordering: `?ordering=price` / `-created_at`.
