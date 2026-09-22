@@ -27,11 +27,13 @@ class BookingSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('id', 'status',  'price_per_night', 'created_at', 'updated_at')
 
-
+    def get_total_price(self, obj):
+        nights = (obj.end_date - obj.start_date).days
+        return obj.price_per_night * nights
 
     def validate(self, attrs):
         """Runs all booking-creation business rules together, since they depend
-            on multiple fields at once (dates + listing) rather than a single field.
+        on multiple fields at once (dates + listing) rather than a single field.
         """
         request = self.context['request']
         start_date = attrs.get('start_date') or (self.instance.start_date if self.instance else None)
