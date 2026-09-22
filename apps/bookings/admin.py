@@ -21,7 +21,7 @@ class BookingAdmin(SimpleHistoryAdmin):
 
     def total_price_display(self, obj):
         nights = (obj.end_date - obj.start_date).days
-        return f'{obj.listing.price * nights} {DEFAULT_CURRENCY}'
+        return f'{obj.price_per_night * nights} {DEFAULT_CURRENCY}'
     total_price_display.short_description = 'Total Price'
 
     def status_display(self, obj):
