@@ -31,6 +31,7 @@ class StatisticsViewSet(viewsets.GenericViewSet):
         """Top 10 listings ordered by total view count (views relation from ViewHistory)."""
         queryset = (
             Listing.objects
+            .filter(is_active=True)
             .annotate(views_count=Count('views'))
             .order_by('-views_count')[:10]
         )
