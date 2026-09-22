@@ -3,8 +3,10 @@ from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.utils import timezone
+from django.db import IntegrityError, transaction
 from rest_framework import status
 from rest_framework.test import APITestCase
+
 
 from apps.bookings.models import Booking
 from core.constants import TENANT_GROUP, LANDLORD_GROUP
@@ -110,8 +112,8 @@ class ListingCreateTests(ListingTestBase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_can_recreate_listing_at_same_address_after_soft_delete(self):
-        """Confirms the condition=Q(is_deleted=False) behavior documented on the
-        model: once the old listing is soft-deleted, its address is free again."""
+        """Once the old listing is soft-deleted, its active_key becomes NULL,
+            so the unique constraint no longer applies to it and the address is free again."""
         self.authenticate_as(self.landlord)
         self.client.delete(f'/api/listings/{self.listing.id}/')
 
@@ -132,6 +134,23 @@ class ListingCreateTests(ListingTestBase):
         )
         response = self.client.post('/api/listings/', payload)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_hard_constraint_blocks_duplicate_even_bypassing_serializer(self):
+        """Confirms the DB-level constraint (via active_key) actually fires,
+        not just the serializer-level check — creates directly via ORM,
+        bypassing validate() entirely."""
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Listing.objects.create(
+                    landlord=self.landlord,
+                    title='Duplicate',
+                    description='...',
+                    city=self.listing.city,
+                    street_address=self.listing.street_address,
+                    price=500,
+                    rooms=1,
+                    property_type='studio',
+                )
 
 class ListingUpdateDeleteTests(ListingTestBase):
     """Tests for editing and deleting listings — ownership and soft delete."""
@@ -297,6 +316,7 @@ class ListingVisibilityTests(ListingTestBase):
             tenant=self.tenant,
             start_date=timezone.now().date() + timedelta(days=10),
             end_date=timezone.now().date() + timedelta(days=15),
+            price_per_night=self.listing.price,
         )
         self.authenticate_as(self.tenant)
         response = self.client.get(f'/api/listings/{self.listing.id}/')
@@ -332,14 +352,31 @@ class ListingVisibilityTests(ListingTestBase):
         response = self.client.get(f'/api/listings/{self.listing.id}/')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-    def test_tenant_with_booking_can_still_see_soft_deleted_listing(self):
-        """A tenant who once booked this listing keeps access to it even after
-        the landlord soft-deletes it, so their booking history stays meaningful."""
+    def test_tenant_with_booking_does_not_see_soft_deleted_listing_in_list(self):
         Booking.objects.create(
             listing=self.listing,
             tenant=self.tenant,
             start_date=timezone.now().date() + timedelta(days=10),
             end_date=timezone.now().date() + timedelta(days=15),
+            price_per_night=self.listing.price,
+        )
+        self.authenticate_as(self.landlord)
+        self.client.delete(f'/api/listings/{self.listing.id}/')
+
+        self.authenticate_as(self.tenant)
+        response = self.client.get('/api/listings/')
+        results = response.data.get('results', response.data)
+        self.assertNotIn(self.listing.id, [item['id'] for item in results])
+
+    def test_tenant_with_booking_can_see_soft_deleted_listing_via_retrieve(self):
+        """Direct retrieve() still shows a soft-deleted listing to a tenant who
+        booked it — only the public list hides it, so booking history stays meaningful."""
+        Booking.objects.create(
+            listing=self.listing,
+            tenant=self.tenant,
+            start_date=timezone.now().date() + timedelta(days=10),
+            end_date=timezone.now().date() + timedelta(days=15),
+            price_per_night=self.listing.price,
         )
         self.authenticate_as(self.landlord)
         self.client.delete(f'/api/listings/{self.listing.id}/')
