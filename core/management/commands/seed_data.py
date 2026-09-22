@@ -179,6 +179,7 @@ class Command(BaseCommand):
                 start_date=start_date,
                 end_date=end_date,
                 status=status_value,
+                price_per_night=listing.price,
             )
             bookings.append(booking)
         return bookings
