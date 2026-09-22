@@ -34,10 +34,11 @@ class ListingSerializer(serializers.ModelSerializer):
         city = attrs.get('city') or (self.instance.city if self.instance else None)
         street_address = attrs.get('street_address') or (self.instance.street_address if self.instance else None)
 
-        queryset = Listing.objects.filter(
+        queryset = Listing.all_objects.filter(
             landlord=request.user,
             city=city,
             street_address=street_address,
+            is_deleted=False,
         )
         if self.instance:
             queryset = queryset.exclude(pk=self.instance.pk)
