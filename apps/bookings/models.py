@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.validators import MinValueValidator
 from django.db import models
 from simple_history.models import HistoricalRecords
 
@@ -27,6 +28,7 @@ class Booking(TimeStampedModel):
     start_date = models.DateField()
     end_date = models.DateField()
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    price_per_night = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(1.00)])
     history = HistoricalRecords()
 
     class Meta:
