@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
@@ -40,7 +41,13 @@ class BookingViewSet(viewsets.ModelViewSet):
         return [permissions.IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(tenant=self.request.user)
+        listing = serializer.validated_data['listing']
+        with transaction.atomic():
+            Booking.objects.select_for_update().filter(listing=listing).exists()
+            serializer.save(
+                tenant=self.request.user,
+                price_per_night=listing.price,
+            )
 
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
