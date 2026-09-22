@@ -13,7 +13,7 @@ statistics — with a "tenant / landlord" role model.
   PostgreSQL/SQLite requires no code changes)
 - **SimpleJWT** — token-based authentication, with a blacklist for logout
 - **django-filter** — listing filtering
-- **drf-spectacular** — API auto-documentation (Swagger UI)
+- **drf-spectacular** — API schema generation
 - **django-simple-history** — booking change history
 - **WhiteNoise** — serves static files without a separate web server
 - **Docker / docker-compose** — containerization and local runs
@@ -136,28 +136,33 @@ implementation details.
   A real, permanent deletion is available via `hard_delete()`.
 - **UUID instead of a numeric id** — used for users, so identifiers aren't
   sequentially guessable.
-- **Conditional unique constraints** — a listing's address is unique only
-  among non-deleted records, allowing the same address to be re-listed
-  after the old listing is deleted.
+- **Conditional uniqueness without partial indexes** — MySQL doesn't
+  support conditional (partial) `UniqueConstraint(condition=Q(...))`.
+  Instead, `Listing` uses a `GeneratedField` (`active_key`) computed by
+  the database itself: `1` for non-deleted rows, `NULL` for deleted ones.
+  Since `NULL` never collides in a unique index, an ordinary
+  `UniqueConstraint` on `(landlord, city, street_address, active_key)`
+  behaves exactly like a conditional one — enforced by MySQL itself, not
+  just at the application level. `ListingSerializer.validate()` still
+  duplicates the check to return a clean `400` instead of a raw
+  `IntegrityError`; a race that slips past validation is caught by
+  `_save_or_400()` in the view. For `ViewHistory`, no such workaround was
+  needed: `NULL` never collides in SQL by default, so an ordinary
+  `UniqueConstraint` on `(listing, user)` already deduplicates
+  authenticated views while leaving anonymous ones (`user=NULL`)
+  unrestricted.
+- **Nightly pricing model** — a listing's `price` is per-night, matching
+  short-term rather than monthly rentals. When a booking is created, the
+  listing's current price is snapshotted into `price_per_night` — so later
+  changes to the listing's price don't retroactively affect existing
+  bookings. A booking exposes a computed `total_price` field
+  (`price_per_night × number of nights`).
 - **JWT logout via blacklist** — access tokens can't be revoked directly,
   so logout invalidates the refresh token through
   `rest_framework_simplejwt.token_blacklist`.
 - **Universal `DB_ENGINE`** — the database engine is set via an
   environment variable, with no `if/else` branching in `settings.py`; any
   engine works as long as the matching driver is installed.
-
-> **Known limitation:** MySQL does not support conditional (partial)
-> unique indexes (`UniqueConstraint(condition=Q(...))`). Django detects
-> this and skips creating the constraint at the database level (see the
-> `models.W036` warning during `migrate`), for both the listing-address
-> uniqueness rule and the view-history deduplication rule. Both rules are
-> still enforced at the application level — through `ListingSerializer.
-> validate()` for listings, and through `get_or_create()` for view
-> history — so the business rule holds for every request made through the
-> API. What's missing is the extra safety net a DB-level constraint would
-> provide against writes that bypass the API entirely (e.g. direct ORM
-> access or the Django admin). This is a deliberate trade-off driven by
-> the requirement to use MySQL as the primary database.
 
 ## Quick Start (local, without Docker)
 
@@ -187,8 +192,7 @@ This brings up three services:
 - **scheduler** — clears expired JWT tokens once a week
   (`flushexpiredtokens`)
 
-The app is available at `http://localhost:8000/`, and the API docs at
-`http://localhost:8000/api/docs/`.
+The app is available at `http://localhost:8000/`.
 
 ## Seeding Test Data
 
